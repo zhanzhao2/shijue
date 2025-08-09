@@ -1,0 +1,19 @@
+{
+  "name": "community-face-system",
+  "version": "1.0.0",
+  "description": "小区人脸系统：网页端在线注册与识别",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "concurrently \"node server/index.js\" \".venv\\Scripts\\python python_backend\\app.py\""
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}

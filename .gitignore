@@ -1,0 +1,9 @@
+﻿.venv/
+node_modules/
+python_backend/dataset/
+python_backend/model/
+data/
+*.log
+.DS_Store
+Thumbs.db
+

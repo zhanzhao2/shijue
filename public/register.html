@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>👤 人脸注册 - 小区人脸系统</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>👤 人脸注册</h1>
+      <div style="text-align: center; margin-bottom: 20px;">
+        <a class="link" href="/">← 返回首页</a>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div class="col" style="flex: 1;">
+            <label>👨‍💼 用户姓名</label>
+            <input id="nameInput" placeholder="请输入姓名" autocomplete="off" />
+          </div>
+          <div class="col">
+            <button id="captureBtn" class="button">
+              📸 开始注册
+            </button>
+          </div>
+        </div>
+
+        <div id="progressSection" style="display: none;">
+          <div class="progress-bar">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+          <div id="progressText" class="status">准备采集...</div>
+        </div>
+
+        <div class="video-row">
+          <video id="video" autoplay muted playsinline></video>
+          <canvas id="overlay"></canvas>
+        </div>
+        
+        <div id="status" class="status">📷 摄像头准备中...</div>
+        
+        <div id="messageArea"></div>
+      </div>
+
+      <div class="card">
+        <h2>💡 注册说明</h2>
+        <div style="display: grid; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 24px;">1️⃣</span>
+            <span>输入您的姓名</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 24px;">2️⃣</span>
+            <span>正视摄像头，保持良好光线</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 24px;">3️⃣</span>
+            <span>点击"开始注册"，系统将采集8张照片</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 24px;">✅</span>
+            <span>等待训练完成即可使用识别功能</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script type="module" src="/js/register.js"></script>
+  </body>
+</html>

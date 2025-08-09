@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>🎯 人脸识别 - 小区人脸系统</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>🎯 人脸识别</h1>
+      <div style="text-align: center; margin-bottom: 20px;">
+        <a class="link" href="/">← 返回首页</a>
+      </div>
+
+      <div class="card">
+        <div class="controls">
+          <label>🎚️ 识别阈值</label>
+          <input id="threshold" type="number" step="0.05" min="0.2" max="1.2" value="0.6" />
+          <span style="font-size: 12px; color: #6b7280; margin-left: 8px;">
+            (数值越小越严格)
+          </span>
+        </div>
+
+        <div class="video-row glow">
+          <video id="video" autoplay muted playsinline></video>
+          <canvas id="overlay"></canvas>
+        </div>
+        
+        <div id="status" class="status">📷 摄像头准备中...</div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-top: 16px;">
+          <div style="text-align: center; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px;">
+            <div style="font-size: 20px; font-weight: bold;" id="fpsDisplay">0</div>
+            <div style="font-size: 12px; color: #6b7280;">FPS</div>
+          </div>
+          <div style="text-align: center; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px;">
+            <div style="font-size: 20px; font-weight: bold;" id="latencyDisplay">0</div>
+            <div style="font-size: 12px; color: #6b7280;">延迟 (ms)</div>
+          </div>
+          <div style="text-align: center; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
+            <div style="font-size: 20px; font-weight: bold;" id="faceCountDisplay">0</div>
+            <div style="font-size: 12px; color: #6b7280;">检测到</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📋 识别记录</h2>
+        <div id="logCounter" class="status">暂无记录</div>
+        <ul id="logs" class="list" style="max-height: 300px; overflow-y: auto;"></ul>
+        <div style="text-align: center; margin-top: 16px;">
+          <button id="clearLogs" class="button" style="background: linear-gradient(45deg, #6c757d, #495057); font-size: 14px; padding: 8px 16px;">
+            🗑️ 清空记录
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>ℹ️ 使用说明</h2>
+        <div style="display: grid; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 24px;">📹</span>
+            <span>保持面部正对摄像头，确保光线充足</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 24px;">🎯</span>
+            <span>绿色框框表示检测到人脸，蓝色标签显示识别结果</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 24px;">⚙️</span>
+            <span>可调整识别阈值来改变识别严格程度</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script type="module" src="/js/recognize.js"></script>
+  </body>
+</html>
