@@ -7,3 +7,21 @@ data/
 .DS_Store
 Thumbs.db
 
+# IDE & tooling
+.vscode/
+.idea/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Coverage & test caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+
+# Env files
+.env
+
