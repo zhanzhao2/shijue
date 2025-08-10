@@ -3,7 +3,7 @@ import io
 import json
 import os
 import threading
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import cv2
 import numpy as np
@@ -53,6 +53,27 @@ def load_labels() -> dict:
 def save_labels(labels: dict) -> None:
     with open(LABELS_PATH, "w", encoding="utf-8") as f:
         json.dump(labels, f, ensure_ascii=False, indent=2)
+
+
+# --- Utilities & Defaults ---
+import re
+
+DEFAULT_THRESHOLD: float = 80.0  # LBPH: 越小越相似；> 阈值则视为“未知”
+
+
+def sanitize_name(name: str) -> str:
+    """Sanitize user provided name to be filesystem-safe and consistent.
+    保留中英文、数字、下划线和中横线，并限制长度，避免路径穿越等问题。
+    """
+    s = re.sub(r"[^0-9A-Za-z_\-\u4e00-\u9fa5]+", "_", str(name).strip())
+    return (s[:50] or "user")
+
+
+def create_recognizer():
+    """Create LBPH recognizer with unified parameters.
+    统一参数，避免不同入口训练出来的模型行为不一致。
+    """
+    return cv2.face.LBPHFaceRecognizer_create(radius=1, neighbors=8, grid_x=8, grid_y=8)
 
 
 def get_or_create_label_id(name: str, labels: dict) -> int:
@@ -114,12 +135,16 @@ def detect_faces_bgr(image_bgr: np.ndarray) -> List[Tuple[int, int, int, int]]:
     # Improve robustness with histogram equalization
     gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
     gray = cv2.equalizeHist(gray)
+    h, w = gray.shape[:2]
+    # 自适应最小人脸尺寸，避免远距离/小脸漏检；至少 80px
+    min_side = min(w, h)
+    min_size = int(max(80, min_side * 0.2))
     face_cascade = cv2.CascadeClassifier(cascade_path)
     faces = face_cascade.detectMultiScale(
         gray,
         scaleFactor=1.08,
-        minNeighbors=7,
-        minSize=(100, 100)
+        minNeighbors=6,
+        minSize=(min_size, min_size)
     )
     # Deduplicate highly overlapping boxes (sometimes cascade returns multiple for one face)
     faces_list: List[Tuple[int, int, int, int]] = [tuple(map(int, f)) for f in faces]
@@ -128,6 +153,7 @@ def detect_faces_bgr(image_bgr: np.ndarray) -> List[Tuple[int, int, int, int]]:
 
 
 def save_face_sample(name: str, image_bgr: np.ndarray) -> str:
+    safe_name = sanitize_name(name)
     faces = detect_faces_bgr(image_bgr)
     if len(faces) == 0:
         raise ValueError("未检测到人脸")
@@ -137,7 +163,7 @@ def save_face_sample(name: str, image_bgr: np.ndarray) -> str:
     face_gray = gray[y : y + h, x : x + w]
     # Normalize to fixed size for recognizer
     face_gray = cv2.resize(face_gray, (200, 200))
-    person_dir = os.path.join(DATASET_DIR, name)
+    person_dir = os.path.join(DATASET_DIR, safe_name)
     os.makedirs(person_dir, exist_ok=True)
     idx = 1
     while True:
@@ -175,9 +201,11 @@ def train_model_async():
         images, ids = build_training_data()
         if len(images) == 0:
             return
-        recognizer = cv2.face.LBPHFaceRecognizer_create(radius=1, neighbors=8, grid_x=8, grid_y=8)
+        recognizer = create_recognizer()
         recognizer.train(images, np.array(ids))
-        recognizer.save(TRAINER_PATH)
+        tmp = TRAINER_PATH + ".tmp"
+        recognizer.save(tmp)
+        os.replace(tmp, TRAINER_PATH)
 
     threading.Thread(target=_train, daemon=True).start()
 
@@ -185,7 +213,7 @@ def train_model_async():
 def load_recognizer():
     if not os.path.exists(TRAINER_PATH):
         return None
-    recognizer = cv2.face.LBPHFaceRecognizer_create()
+    recognizer = create_recognizer()
     recognizer.read(TRAINER_PATH)
     return recognizer
 
@@ -197,6 +225,7 @@ class RegisterPayload(BaseModel):
 
 class RecognizePayload(BaseModel):
     image_base64: str
+    threshold: Optional[float] = None
 
 
 app = FastAPI(title="Community Face Backend (OpenCV)")
@@ -220,19 +249,20 @@ def register(payload: RegisterPayload):
     if not payload.name or not payload.image_base64:
         raise HTTPException(status_code=400, detail="缺少参数")
     try:
+        safe_name = sanitize_name(payload.name)
         saved = []
         if isinstance(payload.image_base64, list):
             for item in payload.image_base64:
                 img = decode_image_base64(item)
-                path = save_face_sample(payload.name, img)
+                path = save_face_sample(safe_name, img)
                 saved.append(path)
         else:
             img = decode_image_base64(str(payload.image_base64))
-            path = save_face_sample(payload.name, img)
+            path = save_face_sample(safe_name, img)
             saved.append(path)
         # ensure label exists and save
         labels = load_labels()
-        _ = get_or_create_label_id(payload.name, labels)
+        _ = get_or_create_label_id(safe_name, labels)
         # retrain in background
         train_model_async()
         return {"ok": True, "saved": saved}
@@ -251,19 +281,22 @@ def recognize(payload: RecognizePayload):
         recognizer = load_recognizer()
         labels = load_labels()
         results = []
+        thr = float(payload.threshold) if payload.threshold is not None else DEFAULT_THRESHOLD
         for (x, y, w, h) in faces:
             face = cv2.resize(gray[y : y + h, x : x + w], (200, 200))
             if recognizer is None:
                 results.append({"rect": [int(x), int(y), int(w), int(h)], "name": "未知", "confidence": None})
                 continue
-            label_id, confidence = recognizer.predict(face)
+            label_id, dist = recognizer.predict(face)
             name = labels["id_to_name"].get(str(label_id), "未知")
+            if dist > thr:
+                name = "未知"
             results.append({
                 "rect": [int(x), int(y), int(w), int(h)],
                 "name": name,
-                "confidence": float(confidence),
+                "confidence": float(dist),
             })
-        return {"ok": True, "result": results}
+        return {"ok": True, "result": results, "threshold": thr}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -273,9 +306,11 @@ def train():
     images, ids = build_training_data()
     if len(images) == 0:
         raise HTTPException(status_code=400, detail="没有训练样本")
-    recognizer = cv2.face.LBPHFaceRecognizer_create()
+    recognizer = create_recognizer()
     recognizer.train(images, np.array(ids))
-    recognizer.save(TRAINER_PATH)
+    tmp = TRAINER_PATH + ".tmp"
+    recognizer.save(tmp)
+    os.replace(tmp, TRAINER_PATH)
     return {"ok": True, "samples": len(images)}
 
 

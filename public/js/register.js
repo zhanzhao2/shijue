@@ -10,7 +10,8 @@ const progressText = document.getElementById('progressText');
 const messageArea = document.getElementById('messageArea');
 
 const CV_REGISTER = '/cv/register';
-const SAMPLE_COUNT = 8;
+const SAMPLE_COUNT = 8; // 可根据需要调整样本数上限
+
 const SAMPLE_INTERVAL_MS = 200;
 
 let dpr = window.devicePixelRatio || 1;

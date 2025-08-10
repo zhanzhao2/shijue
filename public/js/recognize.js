@@ -55,10 +55,14 @@ window.addEventListener('resize', syncCanvasSize);
 
 function snapshotDataUrl() {
   const c = document.createElement('canvas');
-  c.width = video.videoWidth;
-  c.height = video.videoHeight;
+  // 下采样至最大高度 480，降低网络传输体积
+  const maxH = 480;
+  const scale = Math.min(1, maxH / (video.videoHeight || maxH));
+  c.width = Math.round((video.videoWidth || 640) * scale);
+  c.height = Math.round((video.videoHeight || 480) * scale);
   c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
-  return c.toDataURL('image/jpeg', 0.92);
+  // 使用 webp 获得更小体积（兼容性较好）
+  return { data: c.toDataURL('image/webp', 0.7), scale };
 }
 
 function logRecognition(results) {
@@ -164,13 +168,15 @@ async function renderLoop() {
   let faceCount = 0;
   
   try {
-    const image_base64 = snapshotDataUrl();
+    const snap = snapshotDataUrl();
+const image_base64 = snap.data;
+const scale = snap.scale;
     const netStart = performance.now();
     
     const res = await fetch(CV_RECOGNIZE, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image_base64 })
+      body: JSON.stringify({ image_base64, threshold: parseFloat(thresholdInput.value) || undefined })
     });
     
     const data = await res.json();
@@ -182,7 +188,12 @@ async function renderLoop() {
       faceCount = data.result.length;
       
       data.result.forEach(r => {
-        const [x, y, w, h] = r.rect;
+        const [sx, sy, sw, sh] = r.rect;
+        // 由于后端是在下采样后的图上检测，这里需要按 scale 还原到原视频尺寸
+        const x = Math.round(sx / (scale || 1));
+        const y = Math.round(sy / (scale || 1));
+        const w = Math.round(sw / (scale || 1));
+        const h = Math.round(sh / (scale || 1));
         
         // 绘制人脸框 - 根据识别结果改变颜色
         const isKnown = r.name !== '未知';
@@ -256,17 +267,17 @@ clearLogsBtn.addEventListener('click', () => {
 thresholdInput.addEventListener('input', () => {
   const value = parseFloat(thresholdInput.value);
   let hint = '';
-  
-  if (value < 0.4) {
-    hint = '非常严格 - 可能导致误识别';
-  } else if (value < 0.6) {
-    hint = '较严格 - 推荐设置';
-  } else if (value < 0.8) {
-    hint = '中等 - 默认设置';
+
+  if (value <= 60) {
+    hint = '非常严格（容易漏认）';
+  } else if (value <= 90) {
+    hint = '较严格 - 推荐 70~90';
+  } else if (value <= 110) {
+    hint = '中等 - 默认';
   } else {
-    hint = '宽松 - 容易误识别';
+    hint = '宽松（容易误认）';
   }
-  
+
   // 在控制条中显示提示
   const existingHint = document.querySelector('.threshold-hint');
   if (existingHint) {
